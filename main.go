@@ -4,8 +4,13 @@ import (
 	"fmt"
 	"github.com/lpernett/godotenv"
 	"log"
+	"net/http"
 	"os"
 )
+
+type API struct {
+	addr string
+}
 
 func main() {
 	if err := godotenv.Load(); err != nil {
@@ -13,6 +18,17 @@ func main() {
 	}
 
 	port := os.Getenv("SERVER_PORT")
-	fmt.Println(port)
+
+	api := &API{
+		addr: fmt.Sprintf(":%s", port),
+	}
+
+	mux := http.NewServeMux()
+	srv := &http.Server{
+		Addr:    api.addr,
+		Handler: mux,
+	}
+	log.Println("Hello from kj on the sever")
+	log.Fatal(srv.ListenAndServe())
 
 }
