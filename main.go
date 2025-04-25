@@ -28,7 +28,11 @@ func main() {
 		Addr:    api.addr,
 		Handler: mux,
 	}
-	log.Println("Hello from kj on the sever")
-	log.Fatal(srv.ListenAndServe())
 
+	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, "Hello from default route")
+	})
+
+	log.Println("Hello from kj on the sever on port: ", api.addr)
+	log.Fatal(srv.ListenAndServe())
 }
