@@ -1,5 +1,8 @@
 run:
-	air
+	docker-compose up --build
+
+stop:
+	docker-compose down
 
 build:
 	go build .
