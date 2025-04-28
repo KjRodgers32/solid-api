@@ -5,9 +5,9 @@ import (
 	"log"
 	"refeclt"
 
+	"github.com/KjRodgers32/solid-api/db"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/kjrodgers26/solid-api/db"
 )
 
 func GerUsers() error {
