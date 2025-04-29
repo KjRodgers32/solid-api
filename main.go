@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 
 	"github.com/jackc/pgx/v5"
 
@@ -124,10 +125,6 @@ func main() {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 			}
 
-		case http.MethodPut, http.MethodPatch:
-			http.Error(w, "updating users not implemented yet", http.StatusNotImplemented)
-		case http.MethodDelete:
-			http.Error(w, "deleting users not implemented yet", http.StatusNotImplemented)
 		default:
 			http.Error(w, "bad request on users", http.StatusBadRequest)
 		}
@@ -136,11 +133,53 @@ func main() {
 	mux.HandleFunc("/api/v1/users/{id}", loggingMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
-			id := r.PathValue("id")
-			fmt.Fprintf(w, "user id: %s", id)
-		case http.MethodPost:
-			id := r.PathValue("id")
-			fmt.Fprintf(w, "added user %s to db", id)
+			id, err := strconv.Atoi(r.PathValue("id"))
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+			}
+			user, err := queries.GetUser(ctx, int64(id))
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+
+			data := UserJSON{
+				ID:   user.ID,
+				Name: user.Name,
+			}
+
+			if err = json.NewEncoder(w).Encode(data); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+
+		case http.MethodPut, http.MethodPatch:
+			id, err := strconv.Atoi(r.PathValue("id"))
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+			}
+			user, err := queries.GetUser(ctx, int64(id))
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+			defer r.Body.Close()
+			var respData UserJSON
+			if err = json.NewDecoder(r.Body).Decode(&respData); err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+			}
+
+			updateData := db.UpdateUserParams{
+				ID:   user.ID,
+				Name: respData.Name,
+			}
+
+			data := db.UpdateUserParams(updateData)
+			if err = queries.UpdateUser(ctx, data); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+
+			w.WriteHeader(http.StatusCreated)
 		default:
 			http.Error(w, "not implemented yet", http.StatusNotImplemented)
 		}
