@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -91,6 +92,7 @@ func main() {
 			users, err := queries.ListUsers(ctx)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
 			}
 
 			w.Header().Set("Content-Type", "application/json")
@@ -103,15 +105,23 @@ func main() {
 
 			if err = json.NewEncoder(w).Encode(responseData); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
 			}
 		case http.MethodPost:
 			var user db.User
 			if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
+				var syntaxError *json.SyntaxError
+				if errors.As(err, &syntaxError) {
+					http.Error(w, "malformed JSON", http.StatusBadRequest)
+					return
+				}
 				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
 			}
 			addedUser, err := queries.CreateUser(ctx, user.Name)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
 			}
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusCreated)
@@ -123,6 +133,7 @@ func main() {
 
 			if err = json.NewEncoder(w).Encode(responseData); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
 			}
 
 		default:
@@ -136,10 +147,12 @@ func main() {
 			id, err := strconv.Atoi(r.PathValue("id"))
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
 			}
 			user, err := queries.GetUser(ctx, int64(id))
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
 			}
 
 			w.Header().Set("Content-Type", "application/json")
@@ -152,21 +165,30 @@ func main() {
 
 			if err = json.NewEncoder(w).Encode(data); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
 			}
 
 		case http.MethodPut, http.MethodPatch:
 			id, err := strconv.Atoi(r.PathValue("id"))
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
 			}
 			user, err := queries.GetUser(ctx, int64(id))
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
 			}
 			defer r.Body.Close()
 			var respData UserJSON
 			if err = json.NewDecoder(r.Body).Decode(&respData); err != nil {
+				var syntaxError *json.SyntaxError
+				if errors.As(err, &syntaxError) {
+					http.Error(w, "malformed JSON", http.StatusBadRequest)
+					return
+				}
 				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
 			}
 
 			updateData := db.UpdateUserParams{
@@ -174,25 +196,28 @@ func main() {
 				Name: respData.Name,
 			}
 
-			data := db.UpdateUserParams(updateData)
-			if err = queries.UpdateUser(ctx, data); err != nil {
+			if err = queries.UpdateUser(ctx, updateData); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
 			}
 
-			w.WriteHeader(http.StatusCreated)
+			w.WriteHeader(http.StatusOK)
 		case http.MethodDelete:
 			id, err := strconv.Atoi(r.PathValue("id"))
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
 			}
 
 			if err = queries.DeleteUser(ctx, int64(id)); err != nil {
 				http.Error(w, err.Error(), http.StatusNotFound)
+				return
 			}
 
 			w.WriteHeader(http.StatusOK)
 		default:
 			http.Error(w, "not implemented yet", http.StatusNotImplemented)
+			return
 		}
 	}))
 
