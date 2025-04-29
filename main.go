@@ -180,6 +180,17 @@ func main() {
 			}
 
 			w.WriteHeader(http.StatusCreated)
+		case http.MethodDelete:
+			id, err := strconv.Atoi(r.PathValue("id"))
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+			}
+
+			if err = queries.DeleteUser(ctx, int64(id)); err != nil {
+				http.Error(w, err.Error(), http.StatusNotFound)
+			}
+
+			w.WriteHeader(http.StatusOK)
 		default:
 			http.Error(w, "not implemented yet", http.StatusNotImplemented)
 		}
